@@ -1,6 +1,8 @@
 package spnego
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Transport extends the native http.Transport to provide SPNEGO communication
 type Transport struct {
@@ -39,6 +41,11 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, &Error{Err: err}
 	}
 
-	return t.Transport.RoundTrip(req)
+	rsp, err := t.Transport.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return rsp, err
 	// ToDo: process negotiate token from response
 }

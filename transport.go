@@ -75,6 +75,10 @@ func (t *Transport) Transport(endpoint *winrm.Endpoint) error {
 // If the WinRM web service responds with Unauthorized status, the method performs KRB5 authentication.
 func (t *Transport) Post(client *winrm.Client, request *soap.SoapMessage) (string, error) {
 	req, err := t.makeRequest(request.String())
+	if err != nil {
+		return "", err
+	}
+
 	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
 		return "", err

@@ -1,12 +1,19 @@
 package spnego
 
 import (
+	"bytes"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
+	"text/template"
 )
+
+// Krb5Conf config template data
+type Krb5Conf struct {
+	Domain string
+	Kdcs   []string
+}
 
 // Provider is the interface that wraps OS agnostic functions for handling SPNEGO communication
 type Provider interface {
@@ -52,25 +59,28 @@ func GenerateKRB5Conf(domain string, kdcs []string) (string, error) {
 		return "", errors.New("no kdcs specified")
 	}
 
-	uDomain := strings.ToUpper(domain)
-	lDomain := strings.ToLower(domain)
-
-	kdcArray := []string{}
-	for _, kdc := range kdcs {
-		if len(kdc) == 0 {
-			return "", errors.New("empty string specified for kdc")
-		}
-
-		kdcArray = append(kdcArray, fmt.Sprintf("  kdc = %s", kdc))
+	funcMap := template.FuncMap{
+		"upper": strings.ToUpper,
 	}
 
-	conf := fmt.Sprintf(`[libdefaults]
-	default_realm = %s
-	[realms]
-	%s = {
-%s
-	default_domain = %s
-}`, uDomain, uDomain, strings.Join(kdcArray, "\n"), lDomain)
+	tmpl := `[libdefaults]
+	default_realm = {{.Domain | upper}}
+[realms]
+	{{.Domain | upper}} = {
+		{{- range $kdc := .Kdcs}}
+		kdc = {{$kdc}}{{end}}
+	}
+[domain_realm]
+	.{{.Domain}} = {{.Domain | upper}}
+	{{.Domain}} = {{.Domain | upper}}
+`
+	conf := &Krb5Conf{
+		Domain: domain,
+		Kdcs:   kdcs,
+	}
 
-	return conf, nil
+	w := new(bytes.Buffer)
+	tpl := template.Must(template.New("main").Funcs(funcMap).Parse(tmpl))
+	tpl.Execute(w, conf)
+	return w.String(), nil
 }
